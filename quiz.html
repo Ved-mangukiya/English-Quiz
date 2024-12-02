@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Game ROUND-1</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #e0f7fa;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 80%;
+            max-width: 800px;
+            text-align: center;
+            position: relative;
+        }
+        h1 {
+            color: #da3807;
+        }
+        .question {
+            font-size: 1.5em;
+            margin: 20px 0;
+        }
+        .options {
+            margin-top: 20px;
+        }
+        .option {
+            background-color: #0288d1;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+            font-size: 1.2em;
+            transition: background-color 0.3s;
+            width: 80%;
+        }
+        .option:hover {
+            background-color: #0277bd;
+        }
+        .option.disabled {
+            background-color: #d3d3d3;
+            cursor: not-allowed;
+        }
+        .timer {
+            font-size: 1.2em;
+            margin-top: 10px;
+        }
+        .team-turn {
+            font-size: 200%;
+            color: #0288d1;
+            margin-top: 20px;
+        }
+        .button {
+            background-color: #0288d1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+            font-size: 1em;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #0277bd;
+        }
+        .lifelines {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .lifeline-button {
+            background-color: #f39c12;
+            color: white;
+            padding: 8px;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 80px;
+            font-size: 0.9em;
+        }
+        .lifeline-button:disabled {
+            background-color: #d3d3d3;
+        }
+        .timer-bar {
+            height: 20px;
+            background-color: #0288d1;
+            border-radius: 10px;
+            width: 100%;
+            margin-top: 20px;
+        }
+        .timer-bar-fill {
+            height: 100%;
+            width: 100%;
+            background-color: #0077b6;
+            border-radius: 10px;
+        }
+        .scoreboard {
+            font-size: 1.2em;
+            color: #0288d1;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Quiz Game ROUND-1</h1>
+    <div id="team-turn" class="team-turn">Team A's Turn</div>
+
+    <div class="question">
+        <span id="question">Loading question...</span>
+    </div>
+
+    <div class="options" id="options">
+        <!-- Options will appear here -->
+    </div>
+
+    <div class="lifelines">
+        <button id="lifeline-skip" class="lifeline-button">skip</button>
+        <button id="lifeline-call" class="lifeline-button">Call</button>
+        <button id="lifeline-5050" class="lifeline-button">50:50</button>
+        <button id="lifeline-poll" class="lifeline-button">Poll</button>
+    </div>
+
+    <div class="timer">
+        <div id="timer">Time: 20s</div>
+        <div class="timer-bar">
+            <div id="timer-bar-fill" class="timer-bar-fill"></div>
+        </div>
+    </div>
+
+    <button id="next-btn" class="button">Next Question</button>
+
+    <div id="scoreboard" class="scoreboard">Score: Team A: 0 | Team B: 0 | Team C: 0</div>
+</div>
+
+<script>
+    const questions = [
+        { 
+            question: "What is 2+2?", 
+            options: ["3", "4", "5", "6"], 
+            answer: "4" 
+        },
+        { 
+            question: "What is the capital of France?", 
+            options: ["London", "Paris", "Berlin", "Rome"], 
+            answer: "Paris" 
+        },
+        { 
+            question: "Who is the CEO of Tesla?", 
+            options: ["Elon Musk", "Jeff Bezos", "Bill Gates", "Mark Zuckerberg"], 
+            answer: "Elon Musk" 
+        }
+    ];
+
+    let currentQuestion = 0;
+    let currentTeam = "A";
+    let timeLeft = 20;
+    let timerInterval;
+    const timerEl = document.getElementById("timer");
+    const timerBarFill = document.getElementById("timer-bar-fill");
+    const teamTurnEl = document.getElementById("team-turn");
+    const nextBtn = document.getElementById("next-btn");
+    const lifelineskip = document.getElementById("lifeline-skip");
+    const lifelineCall = document.getElementById("lifeline-call");
+    const lifeline5050 = document.getElementById("lifeline-5050");
+    const lifelinePoll = document.getElementById("lifeline-poll");
+    const optionsEl = document.getElementById("options");
+    const scoreboardEl = document.getElementById("scoreboard");
+
+    const usedLifelines = {
+        "A": { "skip": false, "call": false, "5050": false, "poll": false },
+        "B": { "skip": false, "call": false, "5050": false, "poll": false },
+        "C": { "skip": false, "call": false, "5050": false, "poll": false }
+    };
+
+    let scores = {
+        "A": 0,
+        "B": 0,
+        "C": 0
+    };
+
+    function loadQuestion() {
+        const question = questions[currentQuestion];
+        document.getElementById("question").textContent = question.question;
+        optionsEl.innerHTML = ""; // Clear previous options
+
+        question.options.forEach(option => {
+            const button = document.createElement("button");
+            button.textContent = option;
+            button.classList.add("option");
+            button.addEventListener("click", () => handleAnswer(option));
+            optionsEl.appendChild(button);
+        });
+
+        resetTimer();
+        updateLifelines();
+    }
+
+    function resetTimer() {
+        timeLeft = 20;
+        timerEl.textContent = `Time: ${timeLeft}s`;
+        timerBarFill.style.width = "100%";
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            timerEl.textContent = `Time: ${timeLeft}s`;
+            timerBarFill.style.width = `${(timeLeft / 20) * 100}%`;
+            if (timeLeft === 0) {
+                clearInterval(timerInterval);
+                handleAnswer(""); // Time's up
+                disableOptions(); // Gray out all options when timer ends
+            }
+        }, 1000);
+    }
+
+    function handleAnswer(answer) {
+        const question = questions[currentQuestion];
+
+        if (answer === question.answer) {
+            // Add points for the correct answer
+            scores[currentTeam]++;
+            alert(`${currentTeam} answered correctly!`);
+        }
+
+        // Switch to the next team after answering
+        switchTeam();
+    }
+
+    function switchTeam() {
+        currentQuestion++;
+        if (currentQuestion >= questions.length) {
+            currentQuestion = 0;
+        }
+
+        // skip button logic: change team without moving to the next question
+        if (currentTeam === "A") {
+            currentTeam = "B";
+            teamTurnEl.textContent = "Team B's Turn";
+        } else if (currentTeam === "B") {
+            currentTeam = "C";
+            teamTurnEl.textContent = "Team C's Turn";
+        } else {
+            currentTeam = "A";
+            teamTurnEl.textContent = "Team A's Turn";
+        }
+
+        loadQuestion();
+        updateScoreboard();
+    }
+
+    function disableOptions() {
+        const optionButtons = document.querySelectorAll(".option");
+        optionButtons.forEach(button => {
+            button.classList.add("disabled");
+            button.removeEventListener("click", handleAnswer);
+        });
+    }
+
+    function updateScoreboard() {
+        scoreboardEl.textContent = `Score: Team A: ${scores["A"]} | Team B: ${scores["B"]} | Team C: ${scores["C"]}`;
+    }
+
+    function useLifeline(lifeline) {
+        if (usedLifelines[currentTeam][lifeline]) {
+            alert("This lifeline has already been used!");
+        } else {
+            alert(`${lifeline} lifeline used!`);
+            usedLifelines[currentTeam][lifeline] = true;
+            updateLifelines();
+
+            if (lifeline === "5050") {
+                use5050();
+            } else if (lifeline === "call" || lifeline === "poll") {
+                alert("Selected?");
+            }
+        }
+    }
+
+    function use5050() {
+        const question = questions[currentQuestion];
+        const incorrectOptions = question.options.filter(opt => opt !== question.answer);
+        const optionsToGray = [];
+        while (optionsToGray.length < 2) {
+            const randomOption = incorrectOptions[Math.floor(Math.random() * incorrectOptions.length)];
+            if (!optionsToGray.includes(randomOption)) {
+                optionsToGray.push(randomOption);
+            }
+        }
+
+        // Disable the two incorrect options
+        const optionButtons = document.querySelectorAll(".option");
+        optionButtons.forEach(button => {
+            if (optionsToGray.includes(button.textContent)) {
+                button.classList.add("disabled");
+            }
+        });
+    }
+
+    function updateLifelines() {
+        lifelineskip.disabled = usedLifelines[currentTeam]["skip"];
+        lifelineCall.disabled = usedLifelines[currentTeam]["call"];
+        lifeline5050.disabled = usedLifelines[currentTeam]["5050"];
+        lifelinePoll.disabled = usedLifelines[currentTeam]["poll"];
+    }
+
+    lifelineskip.addEventListener("click", () => switchTeam()); // skip button switches teams without changing the question
+    lifelineCall.addEventListener("click", () => useLifeline('call'));
+    lifeline5050.addEventListener("click", () => useLifeline('5050'));
+    lifelinePoll.addEventListener("click", () => useLifeline('poll'));
+
+    nextBtn.addEventListener("click", switchTeam);
+
+    loadQuestion();
+</script>
+
+</body>
+</html>
